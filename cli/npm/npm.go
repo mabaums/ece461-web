@@ -226,7 +226,10 @@ func (cn Connect_npm) get_rampup_score() float64 {
 }
 
 func (cn Connect_npm) get_bus_factor() float64 {
-	score := float64(cn.Maintainers) / float64(cn.Contributors)
+	if cn.Contributors == 0 {
+		return 0.0
+	}
+	score := 1.0 - 1.0/float64(cn.Contributors)
 	return math.Min(1.0, score)
 }
 
