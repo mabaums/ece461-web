@@ -13,8 +13,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Build the Backend image
-      run: docker build . --file Dockerfile --tag ece461-web-backend:$(date +%s)
-      working-directory: backend
+      run: docker build . --file backend.dockerfile --tag ece461-web-backend:$(date +%s)
       
     - uses: actions/checkout@v3
     - name: Build the Frontend image
