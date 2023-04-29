@@ -22,9 +22,9 @@ export class PackageResultsComponent implements OnInit {
   constructor (private route: ActivatedRoute, private service: DefaultService, private _snackbar: MatSnackBar, private router: Router) {}
 
   ngOnInit(): void {
-    this.searchByNameVersion()
+    this.searchByNameVersion(true)
   }
-  searchByNameVersion() {
+  searchByNameVersion(newSearch: boolean) {
     this._snackbar.open("Searching...", "ok", )
     var query:PackageQuery
     if (this.name || this.version) {
@@ -34,6 +34,10 @@ export class PackageResultsComponent implements OnInit {
     }
  
     var queries = [query]
+
+    if (newSearch) {
+      this.offset = "0"
+    }
 
     this.service.packagesList(queries, "", this.offset, "response").subscribe(response => {
       this.packages = response.body!;

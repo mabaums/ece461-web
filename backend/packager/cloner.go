@@ -60,7 +60,7 @@ func zipEncodeDir(dir string) (string, error) {
 	w := zip.NewWriter(file)
 
 	walker := func(path string, info os.FileInfo, err error) error {
-		fmt.Printf("Crawling: %#v\n", path)
+		//fmt.Printf("Crawling: %#v\n", path)
 		if err != nil {
 			return err
 		}

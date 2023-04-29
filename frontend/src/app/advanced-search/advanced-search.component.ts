@@ -36,6 +36,6 @@ export class AdvancedSearchComponent implements OnInit {
     this.child.name = this.name
     this.child.version = this.version
     this.router.navigate(['/search/advanced'], {queryParams:{name: this.name, version: this.version} });
-    this.child.searchByNameVersion()
+    this.child.searchByNameVersion(true)
   }
 }

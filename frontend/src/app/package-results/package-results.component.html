@@ -2,31 +2,25 @@
     <mdb-accordion-item *ngFor="let pkg of packages">
         <ng-template mdbAccordionItemHeader>
             <div style="display: flex;">
-                <div>{{pkg.Name}} : {{pkg.Version}} : {{pkg.ID}}</div>
+                <div><b>{{pkg.Name}}</b> Version: {{pkg.Version}}</div>
             </div>
         </ng-template>
         <ng-template mdbAccordionItemBody>
-            Anim pariatur cliche reprehenderit, enim eiusmod high life accusamus terry
-            richardson ad squid. 3 wolf moon officia aute, non cupidatat skateboard dolor
-            brunch. Food truck quinoa nesciunt laborum eiusmod. Brunch 3 wolf moon tempor, sunt
-            aliqua put a bird on it squid single-origin coffee nulla assumenda shoreditch et.
-            Nihil anim keffiyeh helvetica, craft beer labore wes anderson cred nesciunt sapiente
-            ea proident. Ad vegan excepteur butcher vice lomo. Leggings occaecat craft beer
-            farm-to-table, raw denim aesthetic synth nesciunt you probably haven't heard of them
-            accusamus labore sustainable VHS.
             <div class="options">
-                <button class="btn btn-danger" (click)="delete(pkg.ID)"><i class="far fa-trash-can"></i></button>
-                <button class="btn btn-primary" (click)="rate(pkg.ID, pkg.Name)"><i class="fas fa-star-half-stroke"></i></button>
-                <button class="btn btn-warning" (click)="update(pkg)"><i class="fas fa-pencil"></i></button>
-                <button class="btn btn-primary" (click)="download(pkg.ID)"><i class="fas fa-download"></i></button>
-                <button class="btn btn-danger" (click)="deleteByName(pkg.Name)"><i class="fas fa-filter-circle-xmark"></i></button>
+                <button class="btn btn-danger" (click)="delete(pkg.ID)"><i class="far fa-trash-can">&nbsp;&nbsp;DELETE</i></button>
+                <button class="btn btn-primary" (click)="rate(pkg.ID, pkg.Name)"><i class="fas fa-star-half-stroke">&nbsp;&nbsp;RATE</i></button>
+                <button class="btn btn-warning" (click)="update(pkg)"><i class="fas fa-pencil">&nbsp;&nbsp;UPDATE</i></button>
+                <button class="btn btn-primary" (click)="download(pkg.ID)"><i class="fas fa-download">&nbsp;&nbsp;DOWNLOAD</i></button>
+                <button class="btn btn-danger" (click)="deleteByName(pkg.Name)"><i class="fas fa-filter-circle-xmark">&nbsp;&nbsp;DELETE ALL</i></button>
             </div>
         </ng-template>
     </mdb-accordion-item>
 </mdb-accordion>
 <div *ngIf="offset!=''">
-    <button (click)="searchByNameVersion()">Load More</button>
+    <button class="btn btn-primary" (click)="searchByNameVersion(false)">Load More</button>
 </div>
 <div *ngIf="!packages">
     <h1>No Packages Were found</h1>
 </div>
+
+<!--Change accordion to no expand and have buttons in line.-->

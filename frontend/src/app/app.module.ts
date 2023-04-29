@@ -24,7 +24,7 @@ import { MdbValidationModule } from 'mdb-angular-ui-kit/validation';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { NavBarComponent } from './nav-bar/nav-bar.component';
 import { PackageResultsComponent } from './package-results/package-results.component';
-import {MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { AdvancedSearchComponent } from './advanced-search/advanced-search.component';
 import { HomePageComponent } from './home-page/home-page.component'
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -33,12 +33,13 @@ import { MatRadioModule } from '@angular/material/radio'
 import { MatCheckboxModule } from '@angular/material/checkbox'
 import { MatSelectModule } from '@angular/material/select'
 import { MatIconModule } from '@angular/material/icon'
-import {ReactiveFormsModule} from '@angular/forms'
+import { ReactiveFormsModule } from '@angular/forms'
 import { MatInputModule } from '@angular/material/input'
 import { FormsModule } from '@angular/forms';
 import { PackagePageComponent } from './package-page/package-page.component';
 import { CreatePageComponent } from './create-page/create-page.component';
 import { UpdatePageComponent } from './update-page/update-page.component';
+import { HashLocationStrategy, LocationStrategy } from '@angular/common';
 @NgModule({
   declarations: [
     AppComponent,
@@ -81,7 +82,10 @@ import { UpdatePageComponent } from './update-page/update-page.component';
     MatInputModule,
     FormsModule
   ],
-  providers: [{ provide: BASE_PATH, useValue: "https://ece461-server-rruekicr4q-uc.a.run.app"}],
+  providers: [
+    { provide: BASE_PATH, useValue: "https://ece461-server-rruekicr4q-uc.a.run.app" },
+    { provide: LocationStrategy, useClass: HashLocationStrategy }
+  ],
   bootstrap: [AppComponent]
 })
 export class AppModule { }
