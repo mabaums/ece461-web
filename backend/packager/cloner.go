@@ -2,13 +2,16 @@ package packager
 
 import (
 	"archive/zip"
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	b64 "encoding/base64"
 
@@ -51,13 +54,17 @@ func GetPackageJson(url string) (*models.PackageMetadata, string, error) {
 }
 
 func zipEncodeDir(dir string) (string, error) {
-	file, err := os.Create("output.zip")
+	file, err := os.CreateTemp(".", "*.zip")
+
 	if err != nil {
-		log.Errorf("Error creating output.zip file")
+		log.Errorf("Error creating zip file")
 		return "", err
 	}
+	defer file.Close()
+	defer os.RemoveAll(file.Name())
 
 	w := zip.NewWriter(file)
+	defer w.Close()
 
 	walker := func(path string, info os.FileInfo, err error) error {
 		//fmt.Printf("Crawling: %#v\n", path)
@@ -94,15 +101,13 @@ func zipEncodeDir(dir string) (string, error) {
 		log.Errorf("Error walking and creating zip from file %v", err)
 		return "", err
 	}
-	w.Close()
-	file.Close()
-	bytes, err := os.ReadFile("output.zip")
+	bytes, err := os.ReadFile(file.Name())
 	if err != nil {
 		log.Errorf("Error reading output zip %v", err)
 		return "", err
 	}
 	sEnc := b64.StdEncoding.EncodeToString(bytes)
-	os.RemoveAll("output.zip")
+
 	return sEnc, nil
 
 }
@@ -157,6 +162,78 @@ func Rate(url string) (*models.PackageRating, error) {
 	fmt.Printf("%+v", ratings)
 
 	return &ratings, nil
+}
+
+func UnzipContents(Content string) (string, error) {
+	contentBytes, err := b64.StdEncoding.DecodeString(Content)
+	if err != nil {
+		log.Errorf("Error decoding base 64 string into bytes %v", err)
+		return "", err
+	}
+	reader := bytes.NewReader(contentBytes)
+	len := len(contentBytes)
+	archive, err := zip.NewReader(reader, int64(len))
+
+	dst, err := os.MkdirTemp(".", "*")
+	if err != nil {
+		log.Errorf("Error creating temp directory for unzipping file, %v", err)
+	}
+	for _, f := range archive.File {
+		filePath := filepath.Join(dst, f.Name)
+
+		if !strings.HasPrefix(filePath, filepath.Clean(dst)+string(os.PathSeparator)) {
+			return "", errors.New("Invalid file path")
+		}
+		if f.FileInfo().IsDir() {
+			fmt.Println("creating directory...")
+			os.MkdirAll(filePath, os.ModePerm)
+			continue
+		}
+
+		if err := os.MkdirAll(filepath.Dir(filePath), os.ModePerm); err != nil {
+			log.Errorf("Error unzipping file %v", err)
+			return "", err
+		}
+
+		dstFile, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+		if err != nil {
+			log.Errorf("Error unzipping file %v", err)
+			return "", err
+		}
+
+		fileInArchive, err := f.Open()
+		if err != nil {
+			log.Errorf("Error unzipping file %v", err)
+			return "", err
+		}
+
+		if _, err := io.Copy(dstFile, fileInArchive); err != nil {
+			log.Errorf("Error unzipping file %v", err)
+			return "", err
+		}
+
+		dstFile.Close()
+		fileInArchive.Close()
+	}
+	return dst, nil
+}
+
+func GetPackageJsonFromContent(Content string) (*models.PackageMetadata, error) {
+	dir, err := UnzipContents(Content)
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(dir)
+
+	files, err := ioutil.ReadDir(dir)
+	var newDir string
+	if len(files) == 1 {
+		newDir = filepath.Join(dir, files[0].Name())
+	} else {
+		return nil, errors.New("Unexpected files in folder")
+	}
+
+	return ReadPackageJson(newDir)
 }
 
 func ReadPackageJson(dir string) (*models.PackageMetadata, error) {

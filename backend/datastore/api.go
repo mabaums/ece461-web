@@ -73,13 +73,20 @@ func PackageCreate(c *gin.Context) {
 
 	var metadata *models.PackageMetadata
 	var err error
-	var encoded string
 	var ratings *models.PackageRating
+
 	// Implement packages with content.
 	if dataURLEmpty {
-		c.AbortWithStatus(http.StatusNotImplemented)
-		return
+		metadata, err = packager.GetPackageJsonFromContent(data.Content)
+		if err != nil {
+			c.AbortWithStatus(http.StatusBadRequest)
+			log.Errorf("Error getting package.json from Content: %+v", data.Content)
+			return
+		}
+
+		ratings = createGoodRating()
 	} else {
+		var encoded string
 		metadata, encoded, err = packager.GetPackageJson(data.URL)
 		if err != nil {
 			c.AbortWithStatus(http.StatusBadRequest) // Handle server errors.
@@ -97,7 +104,7 @@ func PackageCreate(c *gin.Context) {
 	}
 
 	if !isGoodRating(ratings) {
-		log.Infof("Pcakge has bad ratings. Ratings: %+v Pkg: %v", ratings, metadata.Name)
+		log.Infof("Package has bad ratings. Ratings: %+v Pkg: %v", ratings, metadata.Name)
 		c.AbortWithStatus(http.StatusFailedDependency)
 		return
 	}
@@ -155,8 +162,8 @@ func PackageCreate(c *gin.Context) {
 	}
 
 	packageID, err := result.LastInsertId()
-	result, err = db.Exec(`INSERT INTO PackageRating (package_id, BusFactor, Correctness, RampUp, ResponsiveMaintainer, LicenseScore, GoodPinningPractice)
-	VALUES (?, ?, ?, ?, ?, ?, ?)`, packageID, ratings.BusFactor, ratings.Correctness, ratings.RampUp, ratings.ResponsiveMaintainer, ratings.LicenseScore, ratings.GoodPinningPractice)
+	result, err = db.Exec(`INSERT INTO PackageRating (package_id, BusFactor, Correctness, RampUp, ResponsiveMaintainer, LicenseScore, GoodPinningPractice, NetScore, PullRequest)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, packageID, ratings.BusFactor, ratings.Correctness, ratings.RampUp, ratings.ResponsiveMaintainer, ratings.LicenseScore, ratings.GoodPinningPractice, ratings.NetScore, ratings.PullRequest)
 	if err != nil {
 		log.Errorf("Error inserting rating %v", err)
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"description": "Internal server error: Could not insert package rating into database."})
@@ -171,6 +178,20 @@ func PackageCreate(c *gin.Context) {
 		"metadata": metadata,
 		"data":     data,
 	})
+}
+
+func createGoodRating() *models.PackageRating {
+	ratings := models.PackageRating{
+		LicenseScore:         1,
+		BusFactor:            1,
+		RampUp:               1,
+		Correctness:          1,
+		ResponsiveMaintainer: 1,
+		GoodPinningPractice:  1,
+		NetScore:             1,
+		PullRequest:          1,
+	}
+	return &ratings
 }
 
 // PackageUpdate - Update this content of the package.
@@ -232,6 +253,14 @@ func PackageUpdate(c *gin.Context) {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"description": "Error rating package"})
 			return
 		}
+	} else {
+		metadata, err := packager.GetPackageJsonFromContent(pkg.Data.Content)
+		pkg.Metadata = *metadata
+		if err != nil {
+			c.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
+		ratings = createGoodRating()
 	}
 
 	if !isGoodRating(ratings) {
@@ -249,8 +278,8 @@ func PackageUpdate(c *gin.Context) {
 		return
 	}
 
-	_, err = db.Exec(`UPDATE PackageRating pr SET BusFactor = ?, Correctness = ?, RampUp = ?, ResponsiveMaintainer = ?, LicenseScore = ?, GoodPinningPractice = ? WHERE pr.package_id = ?`,
-		ratings.BusFactor, ratings.Correctness, ratings.RampUp, ratings.ResponsiveMaintainer, ratings.LicenseScore, ratings.GoodPinningPractice, package_id)
+	_, err = db.Exec(`UPDATE PackageRating pr SET BusFactor = ?, Correctness = ?, RampUp = ?, ResponsiveMaintainer = ?, LicenseScore = ?, GoodPinningPractice = ?, NetScore = ?, PullRequest = ? WHERE pr.package_id = ?`,
+		ratings.BusFactor, ratings.Correctness, ratings.RampUp, ratings.ResponsiveMaintainer, ratings.LicenseScore, ratings.GoodPinningPractice, ratings.NetScore, ratings.PullRequest, package_id)
 	if err != nil {
 		log.Errorf("Error inserting rating %v", err)
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"description": "Internal server error: Could not insert package rating into database."})
@@ -827,7 +856,7 @@ func PackageRate(c *gin.Context) {
 		return
 	}
 
-	rows, err := db.Query(`SELECT BusFactor, Correctness, RampUp, ResponsiveMaintainer, LicenseScore, GoodPinningPractice FROM PackageRating pr
+	rows, err := db.Query(`SELECT BusFactor, Correctness, RampUp, ResponsiveMaintainer, LicenseScore, GoodPinningPractice, NetScore, PullRequest FROM PackageRating pr
 	WHERE pr.package_id = (SELECT id FROM Package WHERE metadata_id = (SELECT id FROM PackageMetadata WHERE PackageID = ?))`, pkgID)
 
 	if err != nil {
@@ -838,7 +867,7 @@ func PackageRate(c *gin.Context) {
 
 	for rows.Next() {
 		var pkgRating models.PackageRating
-		err := rows.Scan(&pkgRating.BusFactor, &pkgRating.Correctness, &pkgRating.RampUp, &pkgRating.ResponsiveMaintainer, &pkgRating.LicenseScore, &pkgRating.GoodPinningPractice)
+		err := rows.Scan(&pkgRating.BusFactor, &pkgRating.Correctness, &pkgRating.RampUp, &pkgRating.ResponsiveMaintainer, &pkgRating.LicenseScore, &pkgRating.GoodPinningPractice, &pkgRating.NetScore, &pkgRating.PullRequest)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 			return

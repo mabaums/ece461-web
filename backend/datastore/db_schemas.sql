@@ -51,6 +51,8 @@ CREATE TABLE PackageRating (
   ResponsiveMaintainer DOUBLE,
   LicenseScore DOUBLE,
   GoodPinningPractice DOUBLE,
+  NetScore DOUBLE,
+  PullRequest DOUBLE,
   PRIMARY KEY (id),
   FOREIGN KEY (package_id) REFERENCES Package(id)
 );
