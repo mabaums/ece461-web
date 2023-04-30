@@ -285,12 +285,11 @@ func Get_contributors(owner string, name string) int {
 func scoreBusFactor(owner string, repo string) float64 {
 
 	// assign := Get_assignees(owner, repo)
-	contributors := Get_contributors("nullivex", "nodist")
+	contributors := Get_contributors(owner, repo)
 	if contributors == 0 {
 		return 0.0
 	}
 	score := 1.0 - 1.0/float64(contributors)
-
 	if score > 1 {
 		score = 1
 	} else if score < 0 {
