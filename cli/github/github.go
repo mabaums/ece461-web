@@ -6,6 +6,7 @@ import (
 
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/machinebox/graphql"
 
@@ -119,21 +120,70 @@ func Get_releases(owner string, name string) int {
 
 }
 
+// score responsiveness based on time to close last 50 issues
+// Avg time 0 days -> score = 1, avg time > 50 days -> score = 0
 func scoreResponsiveness(owner string, repo string) float64 {
 
-	com := Get_com(owner, repo)
-	releases := Get_releases(owner, repo)
-
-	score := float64(releases) / float64((com + 1))
-	if score > 1 {
-		score = 1
-	} else if score < 0 {
-		score = 0
+	type Data struct {
+		Repository struct {
+			Issues struct {
+				Edges []struct {
+					Node struct {
+						ID        string    `json:"id"`
+						CreatedAt time.Time `json:"createdAt"`
+						ClosedAt  time.Time `json:"closedAt"`
+					} `json:"node"`
+				} `json:"edges"`
+			} `json:"issues"`
+		} `json:"repository"`
 	}
 
-	lg.InfoLogger.Println("Finding responsiveness score : ", score)
+	graphqlClient := graphql.NewClient("https://api.github.com/graphql")
 
-	return roundFloat(score, 2)
+	graphqlRequest := graphql.NewRequest(`
+	query Get_commits($own: String!, $repo: String!){
+		repository(name:$repo, owner: $own) {
+			issues(last:50, states:CLOSED) {
+				edges {
+					node {
+						createdAt
+						closedAt
+					}
+				}
+			}
+		}
+		}
+
+    `)
+
+	graphqlRequest.Var("own", owner)
+	graphqlRequest.Var("repo", repo)
+
+	graphqlRequest.Header.Set("Authorization", "Bearer "+GITHUB_TOKEN)
+
+	var res Data
+
+	if err := graphqlClient.Run(context.Background(), graphqlRequest, &res); err != nil {
+		lg.ErrorLogger.Println("Unable to get resposiveness data through GrpahQL API in github.go")
+		fmt.Println((err))
+		os.Exit(1)
+	}
+
+	numIssues := len(res.Repository.Issues.Edges)
+	if numIssues == 0 {
+		return 1.0
+	}
+	totHours := 0.0
+	for i := 0; i < numIssues; i++ {
+		currIssue := res.Repository.Issues.Edges[i].Node
+		createTime := currIssue.CreatedAt
+		closeTime := currIssue.ClosedAt
+		totHours += (closeTime.Sub(createTime)).Hours()
+
+	}
+	avgDaysToClose := (totHours / float64(numIssues)) / 24.0
+	score := 1.0 - avgDaysToClose/50.0
+	return math.Max(score, 0.0)
 
 }
 
@@ -234,11 +284,12 @@ func Get_contributors(owner string, name string) int {
 
 func scoreBusFactor(owner string, repo string) float64 {
 
-	assign := Get_assignees(owner, repo)
-	contributors := Get_contributors("nullivex", "nodist")
-
-	score := float64(assign) / float64((contributors + 1))
-
+	// assign := Get_assignees(owner, repo)
+	contributors := Get_contributors(owner, repo)
+	if contributors == 0 {
+		return 0.0
+	}
+	score := 1.0 - 1.0/float64(contributors)
 	if score > 1 {
 		score = 1
 	} else if score < 0 {
@@ -504,32 +555,80 @@ func get_tag(owner string, name string) string {
 
 }
 
+// Returns number of open issues, number of closed issues
+func getIssuesData(owner string, name string) (int, int) {
+
+	type IssuesData struct {
+		Repository struct {
+			Issues struct {
+				TotalCount int `json:"totalCount"`
+			} `json:"issues"`
+		} `json:"repository"`
+	}
+
+	graphqlClient := graphql.NewClient("https://api.github.com/graphql")
+
+	graphqlRequest := graphql.NewRequest(`
+      query ($own: String!, $repo: String!)  {
+        repository(owner: $own, name: $repo) {
+          issues(last:1, states:OPEN) {
+			totalCount
+		  }
+        }
+      }
+	`)
+
+	graphqlRequest.Var("own", owner)
+	graphqlRequest.Var("repo", name)
+
+	graphqlRequest.Header.Set("Authorization", "Bearer "+GITHUB_TOKEN)
+	graphqlRequest.Header.Set("Accept", "application/vnd.github.hawkgirl-preview+json")
+
+	var res IssuesData
+
+	if err := graphqlClient.Run(context.Background(), graphqlRequest, &res); err != nil {
+		lg.ErrorLogger.Println("Unable to get open issues count through GrpahQL API in github.go")
+		fmt.Println((err))
+		os.Exit(1)
+	}
+	openIssues := res.Repository.Issues.TotalCount
+
+	graphqlRequest2 := graphql.NewRequest(`
+      query ($own: String!, $repo: String!)  {
+        repository(owner: $own, name: $repo) {
+          issues(last:1, states:CLOSED) {
+			totalCount
+		  }
+        }
+      }
+	`)
+
+	graphqlRequest2.Var("own", owner)
+	graphqlRequest2.Var("repo", name)
+
+	graphqlRequest2.Header.Set("Authorization", "Bearer "+GITHUB_TOKEN)
+	graphqlRequest2.Header.Set("Accept", "application/vnd.github.hawkgirl-preview+json")
+
+	var res2 IssuesData
+
+	if err := graphqlClient.Run(context.Background(), graphqlRequest2, &res2); err != nil {
+		lg.ErrorLogger.Println("Unable to get closed issues count through GrpahQL API in github.go")
+		fmt.Println((err))
+		os.Exit(1)
+	}
+	closedIssues := res2.Repository.Issues.TotalCount
+	return openIssues, closedIssues
+
+}
+
+// score correctness based on number of open issues versus closed issues
 func scoreCorrectness(owner string, repo string) float64 {
 
-	version := get_tag(owner, repo)
-
-	if version == "No version" {
-		return 0.0
+	openIssues, closedIssues := getIssuesData(owner, repo)
+	if (openIssues + closedIssues) == 0 {
+		return 1.0
 	}
-
-	res1 := strings.Split(version, ".")
-	major, _ := strconv.ParseFloat(res1[0], 64)
-	minor, _ := strconv.ParseFloat(res1[1], 64)
-	patch, _ := strconv.ParseFloat(res1[2], 64)
-
-	denominator := 1.0
-	if major != 0 {
-		denominator = major
-	}
-	if minor != 0 {
-		denominator *= minor
-	}
-	if patch != 0 {
-		denominator *= patch
-	}
-
-	score := 1 - ((major + minor + patch) / (denominator + 1))
-
+	score := 1 - float64(openIssues)/(float64(openIssues+closedIssues))
 	lg.InfoLogger.Println("Finding Correctness score : ", float64(score))
 	return float64(score)
 }
@@ -666,12 +765,12 @@ func getEngineeringProcessData(owner string, name string) (int, int) {
 	graphqlRequest := graphql.NewRequest(`
       query ($own: String!, $repo: String!)  {
         repository(owner: $own, name: $repo) {
-          pullRequests(last: 100) {
+          pullRequests(last: 100, states:MERGED) {
 			totalCount
             nodes {
               id
 			  additions
-			  reviews(last: 100) {
+			  reviews(last: 1) {
 				totalCount
 			  }
             }
@@ -745,8 +844,7 @@ func Score(URL string) *nd.NdJson {
 	versionPinning := scoreVersionPinning(depVersionList)
 	totAdditionsWithReview, totAdditions := getEngineeringProcessData(owner, repo)
 	engineeringProcess := scoreEngineeringProcess(totAdditionsWithReview, totAdditions)
-	//Update weights
-	overallScore = 0.05*responsiveness + 0.1*busFactor + 0.25*license + 0.1*rampUp + 0.05*correctness + 0.25*versionPinning + 0.2*engineeringProcess
+	overallScore = 0.1*responsiveness + 0.15*busFactor + 0.20*license + 0.1*rampUp + 0.1*correctness + 0.20*versionPinning + 0.15*engineeringProcess
 	lg.InfoLogger.Println("Finding overall score : ", overallScore)
 
 	nd := new(nd.NdJson)

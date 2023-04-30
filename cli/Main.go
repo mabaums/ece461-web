@@ -1,77 +1,85 @@
 package main
 
 import (
+	gh "app/github"
+	log "app/lg"
 	np "app/npm"
-    nd "app/output"
-    log "app/lg"
-    gh "app/github"
+	nd "app/output"
 	"bufio"
 	"fmt"
 	"os"
 	"regexp"
 	"strings"
-
 )
 
+func seperateLinks(links []string) []*nd.NdJson {
+	var re = regexp.MustCompile(`(?m)github`)
 
-func seperateLinks(links[] string) ([]*nd.NdJson){
-    var re = regexp.MustCompile(`(?m)github`)
+	var scores []*nd.NdJson
+	for _, url := range links {
+		if re.MatchString(url) {
+			//log.InfoLogger.Println("Github Condition in Seperate Links , Current URL: ",url)
+			//fmt.Println(url)
+			scores = append(scores, gh.Score(url))
+		} else if strings.Contains(url, "npm") {
+			//log.InfoLogger.Println("NPM Condition in Seperate Links , Current URL: ",url)
 
-    var scores[]*nd.NdJson
-    for _, url := range links {
-        if re.MatchString(url){
-            //log.InfoLogger.Println("Github Condition in Seperate Links , Current URL: ",url)
-            //fmt.Println(url)
-            scores = append(scores,gh.Score(url))
-        } else if strings.Contains(url,"npm"){
-            //log.InfoLogger.Println("NPM Condition in Seperate Links , Current URL: ",url)
-             // urlScore:= scoreNPM(url)
-		 	//fmt.Println(url)
-            cn := new(np.Connect_npm);
-            resp := cn.Data(url)
-            if  resp != nil {
-                scores = append(scores,resp)
-            }
-        }
-    }
-    return scores
+			cn := new(np.Connect_npm)
+
+			GithubLink := cn.Data(url)
+			if GithubLink == "" {
+				continue
+			}
+			parts := strings.Split(GithubLink, "/")
+
+			packageName := parts[len(parts)-1]
+			packageName = packageName[:len(packageName)-4]
+
+			owner := parts[len(parts)-2]
+			githubURL := "https://github.com/" + owner + "/" + packageName
+			if GithubLink != "" {
+				scores = append(scores, gh.Score(githubURL))
+			}
+		}
+	}
+	return scores
 }
 
-func readInput(inputFile string)[]string{
-    readfile,err := os.Open(inputFile)
-    log.ErrorLogger.Println("error in opeing file: ",inputFile)
+func readInput(inputFile string) []string {
+	readfile, err := os.Open(inputFile)
+	log.ErrorLogger.Println("error in opeing file: ", inputFile)
 
-    if err != nil {
-        log.ErrorLogger.Println("error in opeing file")
-        return nil
-    }
+	if err != nil {
+		log.ErrorLogger.Println("error in opeing file")
+		return nil
+	}
 
-    fileScanner := bufio.NewScanner(readfile)
-    fileScanner.Split(bufio.ScanLines)
+	fileScanner := bufio.NewScanner(readfile)
+	fileScanner.Split(bufio.ScanLines)
 
-    var fileLines []string
+	var fileLines []string
 
-    //The following read the file and adds to an array
-    for fileScanner.Scan() {
-        fileLines = append(fileLines, fileScanner.Text())
-    }
-    readfile.Close()
+	//The following read the file and adds to an array
+	for fileScanner.Scan() {
+		fileLines = append(fileLines, fileScanner.Text())
+	}
+	readfile.Close()
 
-    return fileLines
+	return fileLines
 }
 
-func main(){
-    log.Init(os.Getenv("LOG_FILE"))
-    inputFile := os.Args[1]
+func main() {
+	log.Init(os.Getenv("LOG_FILE"))
+	inputFile := os.Args[1]
 
-    links:=readInput(inputFile)
-    if links == nil {
-    	return
-    }
-    score := seperateLinks(links)
-    output:=nd.FormattedOutput(score)
-    fmt.Println(output)
+	links := readInput(inputFile)
+	if links == nil {
+		return
+	}
+	score := seperateLinks(links)
+	output := nd.FormattedOutput(score)
+	fmt.Println(output)
 
-    os.Exit(0)
+	os.Exit(0)
 
 }
