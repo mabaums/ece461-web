@@ -106,7 +106,7 @@ type Package struct {
 	} `json:"evaluation"`
 }
 
-func (cn Connect_npm) Data(packageName string) *nd.NdJson {
+func (cn Connect_npm) Data(packageName string) string {
 	cn.URL = packageName
 
 	// The following makes an API call to NPM site and recieves JSON response.
@@ -115,7 +115,7 @@ func (cn Connect_npm) Data(packageName string) *nd.NdJson {
 	resp, err := http.Get(fmt.Sprintf("https://api.npms.io/v2/package/%s", packageName))
 	if err != nil {
 		lg.ErrorLogger.Println("Unable to reach package through RESTFUL API in npm.go : ", packageName)
-		return nil
+		return ""
 	}
 	defer resp.Body.Close()
 
@@ -124,7 +124,7 @@ func (cn Connect_npm) Data(packageName string) *nd.NdJson {
 	if err != nil {
 		lg.ErrorLogger.Println("Unable to marshal JSON response to struct in npm.go : ", body)
 		panic(err)
-		return nil
+		return ""
 	}
 
 	// Package type variable that hold unmarshalled JSON response
@@ -174,7 +174,7 @@ func (cn Connect_npm) Data(packageName string) *nd.NdJson {
 
 	cn.RepoLink = pkg.Collected.Metadata.Repository.URL
 
-	return cn.Score()
+	return cn.RepoLink
 }
 
 func (cn Connect_npm) Score() *nd.NdJson {
