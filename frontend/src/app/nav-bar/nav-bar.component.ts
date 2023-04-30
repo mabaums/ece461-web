@@ -11,7 +11,6 @@ export class NavBarComponent {
   constructor(private _snackBar: MatSnackBar, private router: Router) {}
 
   search() {
-    this.openSnackBar('Searching...', 'X');
     this.router.navigate(['/search/advanced'], {queryParams:{name: this.searchText} });
   }
 

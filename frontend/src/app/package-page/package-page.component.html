@@ -1,24 +1,29 @@
-<h1>{{name}}</h1>
-<h2>Rating</h2>
-<ul>
-    <li>Bus Factor: {{pkg_rate.BusFactor}}</li>
-    <li>Correctness: {{pkg_rate.Correctness}}</li>
-    <li>Good Pinning: {{pkg_rate.GoodPinningPractice}}</li>
-    <li>License: {{pkg_rate.LicenseScore}} </li>
-    <li>Net Score: {{pkg_rate.NetScore}} </li>
-    <li>Pull Request: {{pkg_rate.PullRequest}}</li>
-    <li>Ramp Up: {{pkg_rate.RampUp}} </li>
-    <li>ResponsiveMaintainer: {{pkg_rate.ResponsiveMaintainer}}</li>
-</ul>
-
-<h2>History</h2>
-<table>
-    <tr *ngFor="let entry of pkg_history">
-        <td>{{entry.User.name}}</td>
-        <td>{{entry.Date}}</td>
-        <td>{{entry.PackageMetadata.ID}}</td>
-        <td>{{entry.PackageMetadata.Name}}</td>
-        <td>{{entry.PackageMetadata.Version}}</td>
-        <td>{{entry.Action}}</td>
-    </tr>
-</table>
+<div class="center">
+    <h1><b>{{name}}</b></h1>
+    <h2>Ratings</h2>
+    <ul class="list-group list-group-light" *ngIf="pkg_rate">
+        <li class="list-group-item">Bus Factor: <b>{{pkg_rate.BusFactor}}</b></li>
+        <li class="list-group-item">Correctness:<b>{{pkg_rate.Correctness}}</b> </li>
+        <li class="list-group-item">Good Pinning: <b>{{pkg_rate.GoodPinningPractice}}</b></li>
+        <li class="list-group-item">License: <b>{{pkg_rate.LicenseScore}}</b> </li>
+        <li class="list-group-item">Net Score: <b>{{pkg_rate.NetScore}}</b> </li>
+        <li class="list-group-item">Pull Request: <b>{{pkg_rate.PullRequest}}</b></li>
+        <li class="list-group-item">Ramp Up: <b>{{pkg_rate.RampUp}}</b> </li>
+        <li class="list-group-item">ResponsiveMaintainer: <b>{{pkg_rate.ResponsiveMaintainer}}</b></li>
+    </ul>
+    
+    <h2>History</h2>
+    <mdb-accordion *ngIf="pkg_history">
+        <mdb-accordion-item *ngFor="let entry of pkg_history">
+            <ng-template mdbAccordionItemHeader>
+                <div style="display: flex;">
+                    <div><b>{{entry.Action}}</b> - {{entry.Date}}</div>
+                </div>
+            </ng-template>
+            <ng-template mdbAccordionItemBody>
+                User: {{entry.User.name}} <br>
+                Package: {{entry.PackageMetadata.Name}}&nbsp;{{entry.PackageMetadata.Version}}
+            </ng-template>
+        </mdb-accordion-item>
+    </mdb-accordion>    
+</div>

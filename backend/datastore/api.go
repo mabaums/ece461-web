@@ -171,7 +171,7 @@ func PackageCreate(c *gin.Context) {
 	}
 
 	// Insert PackageHistoryEntry
-	updatePackageHistory(c, int(metadataID), db, "CREATE")
+	updatePackageHistory(c, metadata.ID, db, "CREATE")
 
 	// Successful Response
 	c.JSON(http.StatusCreated, gin.H{
@@ -216,6 +216,7 @@ func PackageUpdate(c *gin.Context) {
 	log.Infof("REQUEST -- PackageUpdate -- Package: %+v", pkg)
 
 	metadata := pkg.Metadata
+	packageID := metadata.ID
 	var existingPackage models.Package
 	var package_data_id int
 	var package_metadata_id int
@@ -287,7 +288,7 @@ func PackageUpdate(c *gin.Context) {
 	}
 
 	// Insert PackageHistoryEntry
-	updatePackageHistory(c, package_metadata_id, db, "UPDATE")
+	updatePackageHistory(c, packageID, db, "UPDATE")
 
 	c.JSON(http.StatusOK, gin.H{"description": "Version is updated"})
 }
@@ -318,7 +319,7 @@ func generatePackageID(db *sql.DB) string {
 	}
 }
 
-func updatePackageHistory(c *gin.Context, package_metadata_id int, db *sql.DB, action string) {
+func updatePackageHistory(c *gin.Context, packageID string, db *sql.DB, action string) {
 
 	var User_temp models.User
 	User_temp.Name = c.GetString("username")
@@ -334,6 +335,14 @@ func updatePackageHistory(c *gin.Context, package_metadata_id int, db *sql.DB, a
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "internal server error9"})
 		return
 	}
+	var package_metadata_id int
+	err = db.QueryRow("SELECT id FROM PackageMetadata WHERE PackageID = ? ", packageID).Scan(&package_metadata_id)
+	if err != nil {
+		log.Errorf("Error finding Metadata id from PackageID %v", packageID)
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
 	_, err = db.Exec("INSERT INTO PackageHistoryEntry (user_id, date, package_metadata_id, action) VALUES (?, ?, ?, ?)", user_table_id, packageHistoryEntry.Date, package_metadata_id, packageHistoryEntry.Action)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -430,6 +439,12 @@ func PackageByNameDelete(c *gin.Context) {
 			return
 		}
 		metadataIDs = append(metadataIDs, metadataID)
+	}
+
+	if len(metadataIDs) == 0 {
+		log.Errorf("No packages with name: %v found", packageName)
+		c.AbortWithStatus(http.StatusNotFound)
+		return
 	}
 
 	// Delete all history entries, package data, and package versions for each metadata ID
@@ -535,7 +550,7 @@ func PackageRetrieve(c *gin.Context) {
 	}
 
 	// updatePackageHistory(c, 0) need to update package history, find way to obtain from database
-
+	updatePackageHistory(c, packageID, db, "DOWNLOAD")
 	c.JSON(http.StatusOK, gin.H{
 		"metadata": metadata,
 		"data":     data,
@@ -624,7 +639,7 @@ func PackageByNameGet(c *gin.Context) {
 		"WHERE pmd.Name = ?", name)
 
 	fmt.Print(rows)
-	if !rows.Next() || err != nil {
+	if err != nil {
 		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"description": "No such package."})
 		return
 	}
@@ -642,10 +657,16 @@ func PackageByNameGet(c *gin.Context) {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 			return
 		}
-		err = db.QueryRow("SELECT * FROM User WHERE id = ?", user_id).Scan(&packageHistoryEntry.User)
+		err = db.QueryRow("SELECT name, isAdmin FROM User WHERE id = ?", user_id).Scan(&packageHistoryEntry.User.Name, &packageHistoryEntry.User.IsAdmin)
 
 		packageHistoryEntry.PackageMetadata = packageMetadata
 		packageHistoryEntries = append(packageHistoryEntries, packageHistoryEntry)
+	}
+
+	if len(packageHistoryEntries) == 0 {
+		log.Errorf("No history for package found. %v", name)
+		c.AbortWithStatus(http.StatusNotFound)
+		return
 	}
 
 	// Check for errors during iteration
@@ -872,6 +893,8 @@ func PackageRate(c *gin.Context) {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 			return
 		}
+
+		updatePackageHistory(c, pkgID, db, "RATE")
 
 		c.JSON(http.StatusOK, pkgRating)
 		return

@@ -7,6 +7,7 @@ import { HomePageComponent } from './home-page/home-page.component';
 import { PackagePageComponent } from './package-page/package-page.component';
 import { CreatePageComponent } from './create-page/create-page.component';
 import { UpdatePageComponent } from './update-page/update-page.component';
+import { LoginPageComponent } from './login-page/login-page.component';
 
 const routes: Routes = [
   { path: '', component: HomePageComponent},
@@ -14,7 +15,9 @@ const routes: Routes = [
   { path: 'search/advanced', component: AdvancedSearchComponent},
   { path: 'package', component: PackagePageComponent},
   { path: 'create', component: CreatePageComponent},
-  { path: 'update', component: UpdatePageComponent}
+  { path: 'update', component: UpdatePageComponent}, 
+  { path: 'login', component: LoginPageComponent},
+  { path: 'home', component: HomePageComponent}
 ];
 
 @NgModule({

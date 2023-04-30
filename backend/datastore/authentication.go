@@ -22,36 +22,32 @@ type UserCredentials struct {
 	Password string `json:"password"`
 }
 
-var useAuthentication = false
+var useAuthentication = true
 
-func ExtractUserInfoFromToken(tokenString string) (string, string, error) {
+func ExtractUserInfoFromToken(tokenString string) (string, error) {
+	//fmt.Print(tokenString)
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		// Verify that the signing method is HMAC and the secret matches
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		err := godotenv.Load()
-		if err != nil {
-			log.Print("Error loading .env file")
 		}
 
 		secret_key := os.Getenv("SECRET_KEY")
 		return []byte(secret_key), nil
 	})
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 
 	// Extract the "user_name" claim from the token
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 		username, ok1 := claims["username"].(string)
-		password, ok2 := claims["password"].(string)
-		if !ok1 || !ok2 {
-			return "", "", fmt.Errorf("invalid claims")
+		if !ok1 {
+			return "", fmt.Errorf("invalid claims")
 		}
-		return username, password, nil
+		return username, nil
 	}
-	return "", "", fmt.Errorf("invalid token")
+	return "", fmt.Errorf("invalid token")
 }
 
 /*  API Endpoints */
@@ -117,6 +113,7 @@ func CreateAuthToken(c *gin.Context) {
 		// Verify password
 		if dbAuthInfo.Password != authReq.Secret.Password {
 			c.JSON(http.StatusUnauthorized, gin.H{"Message": "unauth"})
+			return
 		}
 		// Verify password
 		// if !verifyPassword(authReq.Secret.Password, dbAuthInfo.Password) {
@@ -127,7 +124,7 @@ func CreateAuthToken(c *gin.Context) {
 		// Create the claims for the JWT token
 		claims := jwt.MapClaims{}
 		claims["username"] = authReq.User.Name
-		claims["password"] = authReq.Secret.Password
+		//claims["isAdmin"] = authReq.User.IsAdmin
 		claims["exp"] = time.Now().Add(time.Hour * 1).Unix() // token expires in 1 hour
 
 		// Create the JWT token with HMAC SHA-256 signing
@@ -144,7 +141,7 @@ func CreateAuthToken(c *gin.Context) {
 		if err != nil {
 			return
 		}
-		c.String(http.StatusOK, "Bearer "+tokenString)
+		c.String(http.StatusOK, tokenString)
 	} else {
 		c.AbortWithStatusJSON(http.StatusNotImplemented, "")
 	}
@@ -159,20 +156,28 @@ func authenticate(c *gin.Context) bool {
 		// Authentication
 		authTokenHeader := c.Request.Header.Get("X-Authorization")
 		if authTokenHeader == "" {
+			log.Errorf("Authenticating but did not recieve X-Authorization header")
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "Authentication token not found in request header"})
 			return false
 		}
-		username, password, err := ExtractUserInfoFromToken(authTokenHeader)
+		username, err := ExtractUserInfoFromToken(authTokenHeader)
+		if err != nil {
+			log.Error(err)
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return false
+		}
 		var pass string
+		log.Infof("Authenticating User: %v IP: %v", username, c.ClientIP())
 		err = db.QueryRow("SELECT password FROM UserAuthenticationInfo WHERE user_id = (SELECT id FROM User WHERE name = ?)", username).Scan(&pass)
-		if err != nil || pass != password {
+		if err != nil {
+			log.Errorf("")
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"description": "There is missing field(s) in the PackageData/AuthenticationToken" +
 				"or it is formed improperly (e.g. Content and URL are both set), or the AuthenticationToken is invalid."})
 			return false
 		}
 		var isAdmin bool
 
-		err = db.QueryRow("SELECT isAdmin FROM User WHERE name = ?", c.GetString("username")).Scan(&isAdmin)
+		err = db.QueryRow("SELECT isAdmin FROM User WHERE name = ?", username).Scan(&isAdmin)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 			return false

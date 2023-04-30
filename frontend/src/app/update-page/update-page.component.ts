@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ActivatedRoute } from '@angular/router';
 import { DefaultService, ModelPackage, PackageData, PackageMetadata } from 'generated';
+import { LoginService } from 'loginService/login.service';
 
 @Component({
   selector: 'app-update-page',
@@ -24,7 +25,7 @@ export class UpdatePageComponent implements OnInit{
     })
   }
 
-  constructor(private service: DefaultService, private route: ActivatedRoute, private _snackbar: MatSnackBar) {}
+  constructor(private service: DefaultService, private route: ActivatedRoute, private _snackbar: MatSnackBar, private loginService: LoginService) {}
 
   update() {
 
@@ -37,7 +38,7 @@ export class UpdatePageComponent implements OnInit{
         data: this.pkg_data,
         metadata: this.pkg_meta
       }
-      this.service.packageUpdate(this.pkg, "", this.pkg.metadata.ID).subscribe(body => {
+      this.service.packageUpdate(this.pkg, this.loginService.getToken(), this.pkg.metadata.ID).subscribe(body => {
         this._snackbar.open("Success updating package", "ok")
       }, error => {
         this._snackbar.open(error.message, "ok")

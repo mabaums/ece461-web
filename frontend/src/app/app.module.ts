@@ -40,6 +40,8 @@ import { PackagePageComponent } from './package-page/package-page.component';
 import { CreatePageComponent } from './create-page/create-page.component';
 import { UpdatePageComponent } from './update-page/update-page.component';
 import { HashLocationStrategy, LocationStrategy } from '@angular/common';
+import { LoginPageComponent } from './login-page/login-page.component';
+import { LoginService } from 'loginService/login.service';
 @NgModule({
   declarations: [
     AppComponent,
@@ -49,7 +51,8 @@ import { HashLocationStrategy, LocationStrategy } from '@angular/common';
     HomePageComponent,
     PackagePageComponent,
     CreatePageComponent,
-    UpdatePageComponent
+    UpdatePageComponent,
+    LoginPageComponent
   ],
   imports: [
     BrowserModule,
@@ -80,11 +83,13 @@ import { HashLocationStrategy, LocationStrategy } from '@angular/common';
     MatIconModule,
     ReactiveFormsModule,
     MatInputModule,
-    FormsModule
+    FormsModule, 
+    MdbFormsModule
   ],
   providers: [
     { provide: BASE_PATH, useValue: "https://ece461-server-rruekicr4q-uc.a.run.app" },
-    { provide: LocationStrategy, useClass: HashLocationStrategy }
+    { provide: LocationStrategy, useClass: HashLocationStrategy },
+    { provide: LoginService}
   ],
   bootstrap: [AppComponent]
 })

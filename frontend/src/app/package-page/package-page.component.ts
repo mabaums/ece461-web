@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ActivatedRoute } from '@angular/router';
 import { DefaultService, PackageData, PackageHistoryEntry, PackageRating } from 'generated';
+import { LoginService } from 'loginService/login.service';
 
 @Component({
   selector: 'app-package-page',
@@ -10,7 +11,7 @@ import { DefaultService, PackageData, PackageHistoryEntry, PackageRating } from 
 })
 export class PackagePageComponent implements OnInit {
 
-  constructor (private route: ActivatedRoute, private service: DefaultService, private _snackbar: MatSnackBar) {}
+  constructor (private route: ActivatedRoute, private service: DefaultService, private _snackbar: MatSnackBar, private loginService: LoginService) {}
 
   name: string = ""
   id: string = ""
@@ -27,7 +28,7 @@ export class PackagePageComponent implements OnInit {
   }
 
   getPackageByName() {
-    this.service.packageByNameGet(this.name, "").subscribe(body => {
+    this.service.packageByNameGet(this.name, this.loginService.getToken()).subscribe(body => {
       this.pkg_history = body;
       console.log("Retrieved pkg ", this.name, " ", this.pkg_history);
     }, error => {
@@ -36,7 +37,7 @@ export class PackagePageComponent implements OnInit {
   }
 
   ratePackage() {
-    this.service.packageRate(this.id, "").subscribe(body => {
+    this.service.packageRate(this.id, this.loginService.getToken()).subscribe(body => {
       this.pkg_rate = body;
       console.log("Recieved rating: ", this.pkg_rate)
     }, error => {
